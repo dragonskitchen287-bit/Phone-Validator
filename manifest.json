@@ -1,0 +1,17 @@
+{
+  "id": "./pixelprotech-phone-validator",
+  "name": "PixelProTech Phone Number Validator",
+  "short_name": "Phone Check",
+  "description": "Validate mobile numbers for any country, one at a time or in bulk. Free and works offline.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f3d3e",
+  "theme_color": "#0f3d3e",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

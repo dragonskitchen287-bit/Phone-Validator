@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PixelProTech Phone Validator</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0f3d3e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Phone Check">
+<style>
+:root{--bg:#f2f6f5;--card:#fff;--ink:#0f2a2b;--mute:#566b6c;--line:#d3dedd;--acc:#0f766e;--accink:#fff;--ok:#157a4a;--bad:#b83232;--warn:#9a6200;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1819;--card:#122425;--ink:#e6f2f1;--mute:#93aeac;--line:#244041;--acc:#4fd1c5;--accink:#0b1819;--ok:#5fd397;--bad:#ff8585;--warn:#e8b04a;color-scheme:dark}}
+*,*:before,*:after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:0 0 10px}
+.sub{color:var(--mute);margin:0 0 20px;max-width:60ch}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+label{display:block;font-weight:600;font-size:.9rem;margin:12px 0 4px}
+label:first-of-type{margin-top:0}
+select,input,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px}
+textarea{min-height:140px;resize:vertical}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1 1 220px}
+.hint,.note{color:var(--mute);font-size:.85rem}
+.btn{display:inline-block;font:inherit;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:var(--accink);border-radius:6px;padding:8px 14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--acc)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+#res{margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+#res[hidden]{display:none}
+.v{font-weight:700;font-size:1.05rem}
+.valid{color:var(--ok)}.possible{color:var(--warn)}.invalid{color:var(--bad)}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:8px 0 0}
+dt{color:var(--mute)}dd{margin:0;word-break:break-all}
+.tw{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+</style>
+</head>
+<body>
+<main>
+<h1>Phone Number Validator</h1>
+<p class="sub">Check mobile numbers for any country, one at a time or in bulk. Everything runs on your device, with no sign-up and no limits.</p>
+
+<section>
+<h2>Check one number</h2>
+<div class="row">
+<div><label for="ctry">Country</label><select id="ctry"></select></div>
+<div><label for="num">Phone number</label><input id="num" type="tel" inputmode="tel" placeholder="+91 98765 43210" autocomplete="off"></div>
+</div>
+<p class="hint">Start with + and a country code to detect the country automatically. Otherwise the selected country is used.</p>
+<div id="res" hidden aria-live="polite"></div>
+</section>
+
+<section>
+<h2>Check many numbers</h2>
+<label for="bulk">One number per line</label>
+<textarea id="bulk" spellcheck="false" placeholder="+44 7911 123456&#10;9876543210&#10;+1 415 555 2671"></textarea>
+<div class="actions">
+<button class="btn" id="go" type="button">Validate all</button>
+<button class="btn ghost" id="cpv" type="button">Copy valid numbers</button>
+<button class="btn ghost" id="csv" type="button">Download CSV</button>
+</div>
+<p class="note" id="bsum"></p>
+<div class="tw"><table id="tbl" hidden><thead><tr><th>Input</th><th>Result</th><th>E.164</th><th>Country</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<p class="note">This checks format and length rules by country. It cannot tell whether a number is active or who owns it. Rules for some countries are length-only and are marked that way.</p>
+</main>
+<script>
+(function(){
+var RAW=String.raw`AF|Afghanistan|93|9|9|7\d{8}
+AL|Albania|355|9|9|6[689]\d{7}
+DZ|Algeria|213|9|9|[567]\d{8}
+AS|American Samoa|1684|7|7
+AD|Andorra|376|6|6|[346]\d{5}
+AO|Angola|244|9|9|9\d{8}
+AI|Anguilla|1264|7|7
+AG|Antigua and Barbuda|1268|7|7
+AR|Argentina|54|10|11|9?\d{10}
+AM|Armenia|374|8|8|[3-9]\d{7}
+AW|Aruba|297|7|7|[5-9]\d{6}
+AU|Australia|61|9|9|4\d{8}
+AT|Austria|43|10|13|6\d{9,12}
+AZ|Azerbaijan|994|9|9|(?:4[04]|5[015]|60|7[07])\d{7}
+BS|Bahamas|1242|7|7
+BH|Bahrain|973|8|8|[36]\d{7}
+BD|Bangladesh|880|10|10|1[3-9]\d{8}
+BB|Barbados|1246|7|7
+BY|Belarus|375|9|9|(?:25|29|33|44)\d{7}
+BE|Belgium|32|9|9|4\d{8}
+BZ|Belize|501|7|7|6\d{6}
+BJ|Benin|229|8|10
+BM|Bermuda|1441|7|7
+BT|Bhutan|975|8|8|[17]\d{7}
+BO|Bolivia|591|8|8|[67]\d{7}
+BA|Bosnia and Herzegovina|387|8|8|6\d{7}
+BW|Botswana|267|7|8|7\d{7}
+BR|Brazil|55|10|11|[1-9][1-9]9?[6-9]\d{7}
+VG|British Virgin Islands|1284|7|7
+BN|Brunei|673|7|7|[2-578]\d{6}
+BG|Bulgaria|359|8|9|(?:8[7-9]|98)\d{7}
+BF|Burkina Faso|226|8|8|[567]\d{7}
+BI|Burundi|257|8|8|[67]\d{7}
+KH|Cambodia|855|8|9
+CM|Cameroon|237|9|9|6\d{8}
+CA|Canada|1|10|10|[2-9]\d{2}[2-9]\d{6}
+CV|Cape Verde|238|7|7|[59]\d{6}
+KY|Cayman Islands|1345|7|7
+CF|Central African Republic|236|8|8|7\d{7}
+TD|Chad|235|8|8|[679]\d{7}
+CL|Chile|56|9|9|9\d{8}
+CN|China|86|11|11|1[3-9]\d{9}
+CO|Colombia|57|10|10|3\d{9}
+KM|Comoros|269|7|7|[34]\d{6}
+CG|Congo|242|9|9
+CD|Congo (DR)|243|9|9|[89]\d{8}
+CK|Cook Islands|682|5|5
+CR|Costa Rica|506|8|8|[5-8]\d{7}
+CI|Côte d'Ivoire|225|10|10
+HR|Croatia|385|8|9|9\d{7,8}
+CU|Cuba|53|8|8|5\d{7}
+CW|Curaçao|599|7|8
+CY|Cyprus|357|8|8|9\d{7}
+CZ|Czechia|420|9|9|[67]\d{8}
+DK|Denmark|45|8|8|[2-9]\d{7}
+DJ|Djibouti|253|8|8|77\d{6}
+DM|Dominica|1767|7|7
+DO|Dominican Republic|1809/1829/1849|7|7
+EC|Ecuador|593|9|9|9\d{8}
+EG|Egypt|20|10|10|1[0125]\d{8}
+SV|El Salvador|503|8|8|[67]\d{7}
+GQ|Equatorial Guinea|240|9|9|[25]\d{8}
+ER|Eritrea|291|7|7|[17]\d{6}
+EE|Estonia|372|7|8|5\d{6,7}
+SZ|Eswatini|268|8|8|7[6-9]\d{6}
+ET|Ethiopia|251|9|9|9\d{8}
+FK|Falkland Islands|500|5|5
+FO|Faroe Islands|298|6|6
+FJ|Fiji|679|7|7|[79]\d{6}
+FI|Finland|358|5|12|[45]\d{5,11}
+FR|France|33|9|9|[67]\d{8}
+GF|French Guiana|594|9|9|694\d{6}
+PF|French Polynesia|689|8|8|8[79]\d{6}
+GA|Gabon|241|7|8
+GM|Gambia|220|7|7|[23679]\d{6}
+GE|Georgia|995|9|9|5\d{8}
+DE|Germany|49|10|11|1[5-7]\d{8,9}
+GH|Ghana|233|9|9|[235]\d{8}
+GI|Gibraltar|350|8|8|[56]\d{7}
+GR|Greece|30|10|10|69\d{8}
+GL|Greenland|299|6|6
+GD|Grenada|1473|7|7
+GP|Guadeloupe|590|9|9|690\d{6}
+GU|Guam|1671|7|7
+GT|Guatemala|502|8|8|[3-5]\d{7}
+GN|Guinea|224|9|9|6\d{8}
+GW|Guinea-Bissau|245|7|9
+GY|Guyana|592|7|7|6\d{6}
+HT|Haiti|509|8|8|[34]\d{7}
+HN|Honduras|504|8|8|[3789]\d{7}
+HK|Hong Kong|852|8|8|[569]\d{7}
+HU|Hungary|36|8|9|(?:20|30|31|50|70)\d{7}
+IS|Iceland|354|7|7|[6-8]\d{6}
+IN|India|91|10|10|[6-9]\d{9}
+ID|Indonesia|62|9|12|8\d{8,11}
+IR|Iran|98|10|10|9\d{9}
+IQ|Iraq|964|10|10|7\d{9}
+IE|Ireland|353|8|9|8[3-9]\d{7}
+IL|Israel|972|8|9|5\d{8}
+IT|Italy|39|9|10|3\d{8,9}
+JM|Jamaica|1876|7|7
+JP|Japan|81|10|10|[7-9]0\d{8}
+JO|Jordan|962|9|9|7[789]\d{7}
+KZ|Kazakhstan|7|10|10|[67]\d{9}
+KE|Kenya|254|9|9|[17]\d{8}
+KI|Kiribati|686|8|8
+XK|Kosovo|383|8|9|4\d{7}
+KW|Kuwait|965|8|8|[569]\d{7}
+KG|Kyrgyzstan|996|9|9|[257]\d{8}
+LA|Laos|856|8|10
+LV|Latvia|371|8|8|2\d{7}
+LB|Lebanon|961|7|8|[378]\d{6,7}
+LS|Lesotho|266|8|8|[56]\d{7}
+LR|Liberia|231|7|9|[4-7]\d{6,8}
+LY|Libya|218|9|9|9[1-6]\d{7}
+LI|Liechtenstein|423|7|9|[67]\d{6,8}
+LT|Lithuania|370|8|8|6\d{7}
+LU|Luxembourg|352|8|9|6\d{7,8}
+MO|Macao|853|8|8|6\d{7}
+MG|Madagascar|261|9|9|3[2-49]\d{7}
+MW|Malawi|265|7|9
+MY|Malaysia|60|9|10|1\d{8,9}
+MV|Maldives|960|7|7|[79]\d{6}
+ML|Mali|223|8|8|[67]\d{7}
+MT|Malta|356|8|8|[79]\d{7}
+MH|Marshall Islands|692|7|7
+MQ|Martinique|596|9|9|696\d{6}
+MR|Mauritania|222|8|8|[2-4]\d{7}
+MU|Mauritius|230|8|8|5\d{7}
+YT|Mayotte|262|9|9|639\d{6}
+MX|Mexico|52|10|10|[1-9]\d{9}
+FM|Micronesia|691|7|7
+MD|Moldova|373|8|8|[67]\d{7}
+MC|Monaco|377|8|9|[46]\d{7,8}
+MN|Mongolia|976|8|8|[5-9]\d{7}
+ME|Montenegro|382|8|8|6\d{7}
+MS|Montserrat|1664|7|7
+MA|Morocco|212|9|9|[67]\d{8}
+MZ|Mozambique|258|9|9|8[2-7]\d{7}
+MM|Myanmar|95|8|10|9\d{7,9}
+NA|Namibia|264|9|9|8\d{8}
+NR|Nauru|674|7|7
+NP|Nepal|977|10|10|9[78]\d{8}
+NL|Netherlands|31|9|9|6\d{8}
+NC|New Caledonia|687|6|6
+NZ|New Zealand|64|8|10|2\d{7,9}
+NI|Nicaragua|505|8|8|[578]\d{7}
+NE|Niger|227|8|8|9\d{7}
+NG|Nigeria|234|10|10|[789][01]\d{8}
+NU|Niue|683|4|4
+KP|North Korea|850|8|10
+MK|North Macedonia|389|8|8|7\d{7}
+MP|Northern Mariana Islands|1670|7|7
+NO|Norway|47|8|8|[49]\d{7}
+OM|Oman|968|8|8|[79]\d{7}
+PK|Pakistan|92|10|10|3\d{9}
+PW|Palau|680|7|7
+PS|Palestine|970|9|9|5[69]\d{7}
+PA|Panama|507|8|8|6\d{7}
+PG|Papua New Guinea|675|8|8|[78]\d{7}
+PY|Paraguay|595|9|9|9\d{8}
+PE|Peru|51|9|9|9\d{8}
+PH|Philippines|63|10|10|9\d{9}
+PL|Poland|48|9|9|[4-8]\d{8}
+PT|Portugal|351|9|9|9[1236]\d{7}
+PR|Puerto Rico|1787/1939|7|7
+QA|Qatar|974|8|8|[3567]\d{7}
+RE|Réunion|262|9|9|693\d{6}
+RO|Romania|40|9|9|7[2-8]\d{7}
+RU|Russia|7|10|10|9\d{9}
+RW|Rwanda|250|9|9|7[2389]\d{7}
+WS|Samoa|685|5|7
+SM|San Marino|378|6|10
+ST|São Tomé and Príncipe|239|7|7|9\d{6}
+SA|Saudi Arabia|966|9|9|5\d{8}
+SN|Senegal|221|9|9|7[0-8]\d{7}
+RS|Serbia|381|8|9|6\d{7,8}
+SC|Seychelles|248|7|7|2\d{6}
+SL|Sierra Leone|232|8|8|[2-9]\d{7}
+SG|Singapore|65|8|8|[89]\d{7}
+SX|Sint Maarten|1721|7|7
+SK|Slovakia|421|9|9|9\d{8}
+SI|Slovenia|386|8|8|[3-7]\d{7}
+SB|Solomon Islands|677|7|7
+SO|Somalia|252|7|9|[67]\d{6,8}
+ZA|South Africa|27|9|9|[6-8]\d{8}
+KR|South Korea|82|9|10|1\d{8,9}
+SS|South Sudan|211|9|9|[19]\d{8}
+ES|Spain|34|9|9|[67]\d{8}
+LK|Sri Lanka|94|9|9|7\d{8}
+KN|St Kitts and Nevis|1869|7|7
+LC|St Lucia|1758|7|7
+PM|St Pierre and Miquelon|508|6|6
+VC|St Vincent and the Grenadines|1784|7|7
+SD|Sudan|249|9|9|[19]\d{8}
+SR|Suriname|597|6|7|[6-8]\d{5,6}
+SE|Sweden|46|7|13|7\d{8}
+CH|Switzerland|41|9|9|7[5-9]\d{7}
+SY|Syria|963|9|9|9\d{8}
+TW|Taiwan|886|9|9|9\d{8}
+TJ|Tajikistan|992|9|9|[5-9]\d{8}
+TZ|Tanzania|255|9|9|[67]\d{8}
+TH|Thailand|66|9|9|[689]\d{8}
+TL|Timor-Leste|670|8|8|7\d{7}
+TG|Togo|228|8|8|[79]\d{7}
+TO|Tonga|676|5|7
+TT|Trinidad and Tobago|1868|7|7
+TN|Tunisia|216|8|8|[2459]\d{7}
+TR|Turkey|90|10|10|5\d{9}
+TM|Turkmenistan|993|8|8|6\d{7}
+TC|Turks and Caicos|1649|7|7
+TV|Tuvalu|688|5|6
+UG|Uganda|256|9|9|7\d{8}
+UA|Ukraine|380|9|9|[3-9]\d{8}
+AE|United Arab Emirates|971|9|9|5\d{8}
+GB|United Kingdom|44|10|10|7[1-57-9]\d{8}
+US|United States|1|10|10|[2-9]\d{2}[2-9]\d{6}
+VI|US Virgin Islands|1340|7|7
+UY|Uruguay|598|8|9|9\d{7}
+UZ|Uzbekistan|998|9|9|[3-9]\d{8}
+VU|Vanuatu|678|5|7
+VA|Vatican City|379|6|10
+VE|Venezuela|58|10|10|4\d{9}
+VN|Vietnam|84|9|10|[35789]\d{8}
+WF|Wallis and Futuna|681|6|6
+YE|Yemen|967|9|9|7\d{8}
+ZM|Zambia|260|9|9|[79]\d{8}
+ZW|Zimbabwe|263|9|9|7\d{8}`;
+var C=RAW.split("\n").map(function(l){var p=l.split("|");return{i:p[0],n:p[1],d:p[2].split("/"),a:+p[3],b:+p[4],r:p[5]||""}});
+var $=function(i){return document.getElementById(i)};
+var flag=function(i){return i.replace(/./g,function(c){return String.fromCodePoint(127397+c.charCodeAt(0))})};
+function chk(e,n){var l=n.length>=e.a&&n.length<=e.b,p=!e.r||new RegExp("^(?:"+e.r+")$").test(n);return{l:l,p:p,ok:l&&p}}
+function group(n){return n.length<=4?n:n.replace(/(\d{3})(?=\d)/g,"$1 ").replace(/ (\d)$/,"$1")}
+function exp(e){return e.a===e.b?e.a:e.a+"–"+e.b}
+function pick(list){
+  for(var k=0;k<list.length;k++)if(chk(list[k].e,list[k].n).ok)return list[k];
+  return list[0];
+}
+function analyse(raw,sel){
+  var s=raw.trim();if(!s)return null;
+  if(!/^[\d\s\-().+\/]+$/.test(s))return{ok:false,cls:"invalid",msg:"Contains letters or symbols that are not part of a phone number"};
+  var intl=/^\+/.test(s)||/^00/.test(s),d=s.replace(/\D/g,"");
+  if(/^00/.test(s)&&!/^\+/.test(s))d=d.replace(/^00/,"");
+  if(d.length<4)return{ok:false,cls:"invalid",msg:"Too short to be a phone number"};
+  var cand=[],e,dial;
+  if(intl){
+    var best=0;
+    C.forEach(function(x){x.d.forEach(function(dl){if(d.indexOf(dl)===0&&dl.length>=best){if(dl.length>best){best=dl.length;cand=[]}
+      var n=d.slice(dl.length);cand.push({e:x,dl:dl,n:n});if(/^0/.test(n))cand.push({e:x,dl:dl,n:n.replace(/^0+/,"")})}})});
+    if(!cand.length)return{ok:false,cls:"invalid",msg:"Unknown country calling code"};
+    var ok=cand.filter(function(c){return chk(c.e,c.n).ok});
+    cand=ok.length?ok:cand;
+  }else{
+    e=sel;dial=e.d[0];
+    var t=d.replace(/^0+/,"");
+    cand=[{e:e,dl:dial,n:d},{e:e,dl:dial,n:t}];
+    if(d.indexOf(dial)===0){cand.push({e:e,dl:dial,n:d.slice(dial.length)});cand.push({e:e,dl:dial,n:d.slice(dial.length).replace(/^0+/,"")})}
+    cand=cand.filter(function(c){return chk(c.e,c.n).ok}).concat(cand.slice(1,2));
+  }
+  var r=pick(cand),c=chk(r.e,r.n),m;
+  if(c.ok)m=r.e.r?"Valid mobile number":"Valid length (no mobile pattern for this country)";
+  else if(!c.l)m=(r.n.length<r.e.a?"Too short":"Too long")+" for "+r.e.n+": expected "+exp(r.e)+" digits after +"+r.dl+", got "+r.n.length;
+  else m="Length is right but it does not look like a "+r.e.n+" mobile number";
+  return{ok:c.ok,cls:c.ok?(r.e.r?"valid":"possible"):"invalid",msg:m,e:r.e,dl:r.dl,n:r.n,e164:"+"+r.dl+r.n,intl:"+"+r.dl+" "+group(r.n)};
+}
+var sel=$("ctry");
+C.slice().sort(function(a,b){return a.n.localeCompare(b.n)}).forEach(function(x){var o=document.createElement("option");o.value=x.i;o.textContent=flag(x.i)+" "+x.n+" (+"+x.d[0]+")";sel.appendChild(o)});
+var reg="";try{reg=new Intl.Locale(navigator.language).region||""}catch(e){}
+sel.value=C.some(function(x){return x.i===reg})?reg:"IN";
+function cur(){return C.filter(function(x){return x.i===sel.value})[0]}
+function show(){
+  var box=$("res"),v=$("num").value,r=analyse(v,cur());
+  if(!r){box.hidden=true;return}
+  box.hidden=false;
+  var h='<div class="v '+r.cls+'">'+(r.cls==="invalid"?"Not valid":r.cls==="valid"?"Valid":"Probably valid")+'</div><div>'+r.msg+'</div>';
+  if(r.e)h+='<dl><dt>Country</dt><dd>'+flag(r.e.i)+" "+r.e.n+'</dd><dt>E.164</dt><dd>'+r.e164+'</dd><dt>International</dt><dd>'+r.intl+'</dd></dl>';
+  box.innerHTML=h;
+}
+$("num").oninput=show;sel.onchange=function(){show();if($("bulk").value)run()};
+var rows=[];
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function run(){
+  var lines=$("bulk").value.split(/\r?\n/).filter(function(l){return l.trim()}),tb=document.querySelector("#tbl tbody"),vc=0,html="";
+  rows=lines.map(function(l){var r=analyse(l,cur());return{i:l.trim(),r:r}});
+  rows.forEach(function(x,k){if(x.r.ok)vc++;if(k<2000)html+="<tr><td>"+esc(x.i)+'</td><td class="'+x.r.cls+'">'+(x.r.ok?"Valid":esc(x.r.msg))+"</td><td>"+(x.r.e164||"")+"</td><td>"+(x.r.e?flag(x.r.e.i)+" "+esc(x.r.e.n):"")+"</td></tr>"});
+  tb.innerHTML=html;$("tbl").hidden=!rows.length;
+  $("bsum").textContent=rows.length?vc+" valid, "+(rows.length-vc)+" not valid, out of "+rows.length+(rows.length>2000?" (table shows the first 2000; the copy and CSV buttons include all)":""):"Paste some numbers first.";
+}
+$("go").onclick=run;
+$("cpv").onclick=function(){
+  var t=rows.filter(function(x){return x.r.ok}).map(function(x){return x.r.e164}).join("\n");
+  if(!t){$("bsum").textContent="No valid numbers to copy yet.";return}
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){$("bsum").textContent="Copied "+t.split("\n").length+" valid numbers."},function(){window.prompt("Copy these numbers:",t)});
+};
+$("csv").onclick=function(){
+  if(!rows.length){$("bsum").textContent="Validate some numbers first.";return}
+  var q=function(s){return '"'+String(s).replace(/"/g,'""')+'"'};
+  var t="input,status,e164,country,reason\r\n"+rows.map(function(x){return [q(x.i),x.r.ok?"valid":"invalid",q(x.r.e164||""),q(x.r.e?x.r.e.n:""),q(x.r.ok?"":x.r.msg)].join(",")}).join("\r\n");
+  var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download="phone-validation.csv";document.body.appendChild(a);a.click();a.remove();
+};
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("service-worker.js").catch(function(){})})}
+})();
+</script>
+</body>
+</html>
